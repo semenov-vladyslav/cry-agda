@@ -67,6 +67,14 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
     y₁z₂³ = y₁ * z₂³
     y₂z₁³ = y₂ * z₁³
 
+  aff : Point → Point
+  aff ((x , y , z) , _) = (x′ , y′ , 1#) , _ where
+    z⁻¹ = z ⁻¹
+    z⁻² = z⁻¹ ²
+    z⁻³ = z⁻² * z⁻¹
+    x′ = x * z⁻²
+    y′ = y * z⁻³
+
   _==_ : Point → Point → Set _
   ((x₁ , y₁ , z₁) , _) == ((x₂ , y₂ , z₂) , _)
   -- p₁ == p₂ with norm2 p₁ p₂
@@ -237,7 +245,7 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
 module test where
   g = cry.gfp.test
 
-  open RawField g renaming (Carrier to 𝔽)
+  open RawField g renaming (Carrier to 𝔽) public
   4<7 : 4 N.< 7
   4<7 = (N.s≤s (N.s≤s (N.s≤s (N.s≤s (N.s≤s N.z≤n)))))
   1<7 : 1 N.< 7
@@ -254,7 +262,7 @@ module test where
   yₚ = 2 P., 2<7
   zₚ = 1 P., 1<7
 
-  open ec g a b
+  open ec g a b public
   P 2P : Point
   P = (xₚ , yₚ , zₚ) , tt
   2P = dbl P

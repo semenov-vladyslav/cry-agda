@@ -1,37 +1,35 @@
 module cry.ec where
 
-import Data.Bool as B
-import Data.Nat as N
-import Data.Nat.DivMod as N/
-import Data.Nat.Divisibility as N∣
--- import Data.Nat.Primality as N′
-open import Data.Fin using (Fin; toℕ)
-open import Data.Unit using (⊤; tt)
-import Data.Product as P
+open import Level
+open import Relation.Nullary
 
-open import Relation.Nullary using (Dec; yes; no; ¬_)
-open import Relation.Nullary.Decidable using (False; True; ⌊_⌋)
-open import Relation.Binary using (Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_; cong)
-open import Function using (case_of_)
-open import Algebra
-open import Algebra.Structures
+open import cry.gfp
 
-open import cry.gfp hiding (test)
+infixr 4 _,_
+infixr 2 _×_
+
+record _×_ {a b} (A : Set a) (B : Set b) : Set (a ⊔ b) where
+  constructor _,_
+  field
+    proj₁ : A
+    proj₂ : B
+
+open _×_ public
 
 -- EC: group of points of elliptic curve (in jacobian coordinates, without conversion to affine)
-open P using (Σ; _×_; _,_; proj₁; proj₂)
 
 module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
   module F = RawField gfp
   open F renaming (Carrier to 𝔽; _≈_ to _=F_; _≈?_ to _≟F_)
 
-  xyz : Set _
-  xyz = 𝔽 × 𝔽 × 𝔽
+  record Point : Set c where
+    constructor _∶_∶_
+    field
+      x y z : 𝔽
 
-  is-point : xyz → Set _
+  -- is-point : Point → Set _
   -- (y/z³) ² ≡ (x/z²) ³ + a * (x/z²) + b
-  is-point (x , y , z) = ⊤
+  -- is-point (x , y , z) = ⊤
   {-
     let
       y² = y ²
@@ -48,27 +46,8 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
     in y² =F x³+axz⁴+bz⁶
   -}
 
-  Point : Set _
-  Point = Σ xyz is-point
-
-  x_ y_ z_ : Point → 𝔽
-  x ((v , _ , _) , _) = v
-  y ((_ , v , _) , _) = v
-  z ((_ , _ , v) , _) = v
-
-  norm2 : Point → Point → (𝔽 × 𝔽) × (𝔽 × 𝔽)
-  norm2 ((x₁ , y₁ , z₁) , _) ((x₂ , y₂ , z₂) , _) = (x₁z₂² , x₂z₁²) , (y₁z₂³ , y₂z₁³) where
-    z₂² = z₂ ²
-    z₁² = z₁ ²
-    x₁z₂² = x₁ * z₂²
-    x₂z₁² = x₂ * z₁²
-    z₂³ = z₂ * z₂²
-    z₁³ = z₁ * z₁²
-    y₁z₂³ = y₁ * z₂³
-    y₂z₁³ = y₂ * z₁³
-
   aff : Point → Point
-  aff ((x , y , z) , _) = (x′ , y′ , 1#) , _ where
+  aff (x ∶ y ∶ z) = x′ ∶ y′ ∶ 1# where
     z⁻¹ = z ⁻¹
     z⁻² = z⁻¹ ²
     z⁻³ = z⁻² * z⁻¹
@@ -76,7 +55,7 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
     y′ = y * z⁻³
 
   _==_ : Point → Point → Set _
-  ((x₁ , y₁ , z₁) , _) == ((x₂ , y₂ , z₂) , _)
+  (x₁ ∶ y₁ ∶ z₁) == (x₂ ∶ y₂ ∶ z₂)
   -- p₁ == p₂ with norm2 p₁ p₂
   -- ... | (x₁z₂² , x₂z₁²) , (y₁z₂³ , y₂z₁³)
     = x₁z₂² =F x₂z₁² × y₁z₂³ =F y₂z₁³ where
@@ -94,7 +73,7 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
     y₂z₁³ = y₂ * z₁³
 
   _≟_ : (p₁ p₂ : Point) → Dec (p₁ == p₂)
-  ((x₁ , y₁ , z₁) , _) ≟ ((x₂ , y₂ , z₂) , _) = r where
+  (x₁ ∶ y₁ ∶ z₁) ≟ (x₂ ∶ y₂ ∶ z₂) = r where
     z₂² = z₂ ²
     z₁² = z₁ ²
     x₁z₂² = x₁ * z₂²
@@ -111,7 +90,7 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
     ... | yes y₁=y₂ = yes (x₁=x₂ , y₁=y₂)
 
   is-𝕆 : Point → Set _
-  is-𝕆 ((_ , _ , z) , _) = z =F 0#
+  is-𝕆 (_ ∶ _ ∶ z) = z =F 0#
   {-
   x₃ = λ² − x₁ − x₂
   y₃ = λ(x₁ − x₃) − y₁
@@ -153,7 +132,7 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
   -}
 
   dbl : Point → Point
-  dbl ((x₁ , y₁ , z₁) , p₁) = ((x₃ , y₃ , z₃) , tt) where
+  dbl (x₁ ∶ y₁ ∶ z₁) = (x₃ ∶ y₃ ∶ z₃) where
     {- p₁ = p₂
     x₃ = λ² − x₁ − x₁
     y₃ = λ(x₁ − x₃) − y₁
@@ -194,7 +173,7 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
     y₃ = [3x₁²+az₁⁴][x₁[2y₁]²-x₃] - 8y₁⁴
 
   add : Point → Point → Point
-  add ((x₁ , y₁ , z₁) , p₁) ((x₂ , y₂ , z₂) , p₂) = (x₃ , y₃ , z₃) , tt where
+  add (x₁ ∶ y₁ ∶ z₁) (x₂ ∶ y₂ ∶ z₂) = x₃ ∶ y₃ ∶ z₃ where
     {- p₁ ≠ p₂
     x₃ = λ² − x₁ − x₂
     y₃ = λ(x₁ − x₃) − y₁
@@ -243,27 +222,21 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
     y₃ = [y₂z₁³-y₁z₂³][x₁z₂²[x₂z₁²-x₁z₂²]²-x₃] - y₁z₂³[x₂z₁²-x₁z₂²]³
 
 module test where
-  g = cry.gfp.test
+  g = cry.gfp.gfp 7
 
   open RawField g renaming (Carrier to 𝔽) public
-  4<7 : 4 N.< 7
-  4<7 = (N.s≤s (N.s≤s (N.s≤s (N.s≤s (N.s≤s N.z≤n)))))
-  1<7 : 1 N.< 7
-  1<7 = (N.s≤s (N.s≤s N.z≤n))
-  2<7 : 2 N.< 7
-  2<7 = (N.s≤s (N.s≤s (N.s≤s N.z≤n)))
 
   a b : 𝔽
-  a = 4 P., 4<7
-  b = 1 P., 1<7
+  a = 4
+  b = 1
 
   xₚ yₚ zₚ : 𝔽
-  xₚ = 4 P., 4<7
-  yₚ = 2 P., 2<7
-  zₚ = 1 P., 1<7
+  xₚ = 4
+  yₚ = 2
+  zₚ = 1
 
   open ec g a b public
   P 2P : Point
-  P = (xₚ , yₚ , zₚ) , tt
+  P = (xₚ ∶ yₚ ∶ zₚ)
   2P = dbl P
 

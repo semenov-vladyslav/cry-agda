@@ -12,12 +12,45 @@ import Data.Unit as U
 
 open import Relation.Nullary using (Dec; yes; no)
 open import Relation.Nullary.Decidable using (False; True; ⌊_⌋)
-open import Relation.Binary using (Decidable)
+open import Relation.Binary using (Decidable; Rel)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; trans; cong)
 open import Function using (case_of_)
-open import Algebra
-open import Algebra.Structures
-open import Algebra.FunctionProperties
+open import Algebra using (RawRing)
+open import Algebra.Structures using ()
+open import Algebra.FunctionProperties using (Op₁; Op₂)
+
+import Level as L
+
+record RawField c ℓ : Set (L.suc (c L.⊔ ℓ)) where
+  infix  10 _⁻¹
+  infix  9 -_
+  infixl 8 _²
+  infixl 7 _*_
+  infixl 6 _+_ _-_
+  infix  4 _≈_
+  field
+    Carrier : Set c
+    _≈_     : Rel Carrier ℓ
+    _≈?_    : Decidable _≈_
+    _+_     : Op₂ Carrier
+    _-_     : Op₂ Carrier
+    _*_     : Op₂ Carrier
+    _²      : Op₁ Carrier
+    -_      : Op₁ Carrier
+    _⁻¹     : Op₁ Carrier
+    0#      : Carrier
+    1#      : Carrier
+
+  rawRing : RawRing _
+  rawRing = record
+    { Carrier = Carrier
+    ; _+_ = _+_
+    ; _*_ = _*_
+    ; -_ = -_
+    ; 0# = 0#
+    ; 1# = 1#
+    }
+
 
 -- GF(p): ring of integers modulo prime (without division)
 module _ where
@@ -37,154 +70,105 @@ module _ where
   Prime″ : Set
   Prime″ = Σ ℕ is-prime″
 
-  f<p : ∀ {p} → (f : Fin p) → toℕ f < p
-  f<p {zero} ()
-  f<p {suc p} Fin.zero = N.s≤s N.z≤n
-  f<p {suc p} (Fin.suc f) = N.s≤s (f<p f)
+  private
+    f<p : ∀ {p} → (f : Fin p) → toℕ f < p
+    f<p {zero} ()
+    f<p {suc p} Fin.zero = N.s≤s N.z≤n
+    f<p {suc p} (Fin.suc f) = N.s≤s (f<p f)
+
+    p<1+p : ∀ p → p < suc p
+    p<1+p zero = N.s≤s N.z≤n
+    p<1+p (suc p) = N.s≤s (p<1+p p)
+    p≤1+p : ∀ p → p N.≤ suc p
+    p≤1+p zero = N.z≤n
+    p≤1+p (suc p) = N.s≤s (p≤1+p p)
+
+    p-sn<p : ∀ {p n} → (n<p : suc n N.< p) → (p N.∸ (suc n) N.< p)
+    p-sn<p {zero} {n} ()
+    p-sn<p {suc p} {zero} (N.s≤s n<p) = p<1+p p
+    p-sn<p {suc p} {suc n} (N.s≤s n<p) = ≤-trans (p-sn<p {p} {n} n<p) (p≤1+p p)
 
   toℕ′ : ∀ {p} → Fin p → Σ ℕ (N._< p)
   toℕ′ f = toℕ f , f<p f
 
-  p<1+p : ∀ p → p < suc p
-  p<1+p zero = N.s≤s N.z≤n
-  p<1+p (suc p) = N.s≤s (p<1+p p)
-  p≤1+p : ∀ p → p N.≤ suc p
-  p≤1+p zero = N.z≤n
-  p≤1+p (suc p) = N.s≤s (p≤1+p p)
-
-  p-sn<p : ∀ {p n} → (n<p : suc n N.< p) → (p N.∸ (suc n) N.< p)
-  p-sn<p {zero} {n} ()
-  p-sn<p {suc p} {zero} (N.s≤s n<p) = p<1+p p
-  p-sn<p {suc p} {suc n} (N.s≤s n<p) = ≤-trans (p-sn<p {p} {n} n<p) (p≤1+p p)
-
-  -- TODO: make Ring
-  record GFp (P : Prime″) : Set where
-    constructor gfp
-    private
+  gfp : Prime″ → RawField _ _
+  gfp P = record
+    { Carrier = 𝔽
+    ; _≈_ = _==_
+    ; _≈?_ = _≟_
+    ; _+_ = _+_
+    ; _-_ = _-_
+    ; _*_ = _*_
+    ; _² = _²
+    ; -_ = -_
+    ; _⁻¹ = _⁻¹
+    ; 0# = 0#
+    ; 1# = 1#
+    } where
       p = 2 N.+ proj₁ P
       p-is-prime = proj₂ P
-      -- needed for _divMod_
       p≠0 : False (p N.≟ 0)
       p≠0 = tt
 
-    𝔽 : Set
-    𝔽 = Σ ℕ (N._< (2 N.+ proj₁ P)) -- N._< p
+      𝔽 : Set
+      𝔽 = Σ ℕ (N._< (2 N.+ proj₁ P)) -- N._< p
 
-    to𝔽 = toℕ′ {p}
+      to𝔽 = toℕ′ {p}
 
-{-
-    _==_ : 𝔽 → 𝔽 → Set
-    _==_ (x , _) (y , _) = T ⌊ x N.≟ y ⌋
-    -- _==_ = _≡_
-    -- _≡_
-    -- HeterogenousEquality
+      _==_ : 𝔽 → 𝔽 → Set
+      (x , _) == (y , _) = x ≡ y
 
-    ==-refl : ∀ x → x == x
-    ==-refl (x , x<p) with x N.≟ x
-    ==-refl (x , x<p) | yes x≡x = tt
-    ==-refl (x , x<p) | no x≢x = x≢x refl
-
-    ==-sym : ∀ x y → x == y → y == x
-    ==-sym (x , _) (y , _) x==y with x N.≟ y
-    ==-sym (x , _) (y , _) tt | yes x≡y = {!!}
-    ==-sym (x , _) (y , _) x==y | no x≢y = {!x==y!}
-
-    _≟_ : (x y : 𝔽) → Dec (x == y)
-    (x , _) ≟ (y , _) with x N.≟ y
-    (x , _) ≟ (y , _) | yes x≟y = yes tt
-    (x , _) ≟ (y , _) | no ¬x≟y = no λ {prf → prf}
-    -- (x , _) ≟ (y , _) | yes x≟y rewrite x≟y = yes {!!}
-    -- (x , _) ≟ (y , _) | no ¬x≟y = no λ {prf → {!!}}
--}
-
-{-
-    _==_ : 𝔽 → 𝔽 → Set
-    _==_ = _≡_
-
-    private
       uip : ∀ {z} {t} → (p₁ p₂ : z N.< t) → p₁ ≡ p₂
       uip {zero} (N.s≤s N.z≤n) (N.s≤s N.z≤n) = refl
       uip {suc z} (N.s≤s p₁) (N.s≤s p₂) = cong N.s≤s (uip {z} p₁ p₂)
 
-    _≟_ : (x y : 𝔽) → Dec (x == y)
-    (x , px) ≟ (y , py) with x N.≟ y
-    ((x , px) ≟ (y , py)) | yes x=y rewrite x=y | uip px py = yes refl
-    ((x , px) ≟ (y , py)) | no x≠y = no (λ x=y → x≠y (cong proj₁ x=y))
--}
-    _==_ : 𝔽 → 𝔽 → Set
-    (x , _) == (y , _) = x ≡ y
+      _≟_ : (x y : 𝔽) → Dec (x == y)
+      (x , px) ≟ (y , py) with x N.≟ y
+      ((x , px) ≟ (y , py)) | yes x=y rewrite x=y | uip px py = yes refl
+      ((x , px) ≟ (y , py)) | no x≠y = no (λ x=y → x≠y x=y)
 
-    private
-      uip : ∀ {z} {t} → (p₁ p₂ : z N.< t) → p₁ ≡ p₂
-      uip {zero} (N.s≤s N.z≤n) (N.s≤s N.z≤n) = refl
-      uip {suc z} (N.s≤s p₁) (N.s≤s p₂) = cong N.s≤s (uip {z} p₁ p₂)
+      ==-refl : ∀ {x} → x == x
+      ==-refl = refl
 
-    _≟_ : (x y : 𝔽) → Dec (x == y)
-    (x , px) ≟ (y , py) with x N.≟ y
-    ((x , px) ≟ (y , py)) | yes x=y rewrite x=y | uip px py = yes refl
-    ((x , px) ≟ (y , py)) | no x≠y = no (λ x=y → x≠y x=y)
+      ==-sym : ∀ {x y} → x == y → y == x
+      ==-sym = sym
 
-    ==-refl : ∀ {x} → x == x
-    ==-refl = refl
+      infix  10 _⁻¹
+      infix  9 -_
+      infixl 8 _²
+      infixl 7 _*_
+      infixl 6 _+_ _-_
 
-    ==-sym : ∀ {x y} → x == y → y == x
-    ==-sym = sym
+      _+_ : 𝔽 → 𝔽 → 𝔽
+      (n , _) + (m , _) with ((n N.+ m) divMod p) {p≠0}
+      ... | (result _ r _) = to𝔽 r
 
-    infixl 4 -_
-    infixl 5 _+_ _-_
-    infixl 6 _*_
-    infixl 7 _² _³
-    infixl 7 _^_
-    infixl 7 _⁻¹
+      _*_ : 𝔽 → 𝔽 → 𝔽
+      (n , _) * (m , _) with ((n N.* m) divMod p) {p≠0}
+      ... | (result _ r _) = to𝔽 r
 
-    _+_ : 𝔽 → 𝔽 → 𝔽
-    (n , _) + (m , _) with ((n N.+ m) divMod p) {p≠0}
-    ... | (result _ r _) = to𝔽 r
+      _² : 𝔽 → 𝔽
+      x ² = x * x
 
-    _*_ : 𝔽 → 𝔽 → 𝔽
-    (n , _) * (m , _) with ((n N.* m) divMod p) {p≠0}
-    ... | (result _ r _) = to𝔽 r
+      -_ : 𝔽 → 𝔽
+      - (zero , prf) = (zero , prf)
+      - (suc n , prf) = (p N.∸ (suc n) , p-sn<p prf)
 
-    _² : 𝔽 → 𝔽
-    x ² = x * x
+      _-_ : 𝔽 → 𝔽 → 𝔽
+      x - y = x + (- y)
 
-    _³ : 𝔽 → 𝔽
-    x ³ = x ² * x
+      0# : 𝔽
+      0# = 0 , N.s≤s N.z≤n
 
-    -_ : 𝔽 → 𝔽
-    - (zero , prf) = (zero , prf)
-    - (suc n , prf) = (p N.∸ (suc n) , p-sn<p prf)
+      1# : 𝔽
+      1# = 1 , N.s≤s (N.s≤s N.z≤n)
 
-    _-_ : 𝔽 → 𝔽 → 𝔽
-    x - y = x + (- y)
+      _^_ : 𝔽 → ℕ → 𝔽
+      x ^ 0 = 1#
+      x ^ (N.suc n) = x * (x ^ n)
 
-    0# : 𝔽
-    0# = 0 , N.s≤s N.z≤n
-
-    1# : 𝔽
-    1# = 1 , N.s≤s (N.s≤s N.z≤n)
-
-    _^_ : 𝔽 → ℕ → 𝔽
-    x ^ zero = 1#
-    x ^ suc n = x * (x ^ n)
-
-    _⁴ : 𝔽 → 𝔽
-    x ⁴ = x ^ 4
-    _⁶ : 𝔽 → 𝔽
-    x ⁶ = x ^ 6
-
-    _⁻¹ : 𝔽 → 𝔽
-    x ⁻¹ = x ^ (p N.∸ 2)
-
-    rawRing : RawRing _
-    rawRing = record
-      { Carrier = 𝔽
-      ; _+_ = _+_
-      ; _*_ = _*_
-      ; -_ = -_
-      ; 0# = 0#
-      ; 1# = 1#
-      }
+      _⁻¹ : 𝔽 → 𝔽
+      x ⁻¹ = x ^ (p N.∸ 2)
 
     {-
     +-assoc : Associative _==_ _+_
@@ -264,5 +248,4 @@ test = g where
   P : Prime″
   P = 5 P., 7-prime
 
-  g : GFp P
-  g = gfp
+  g = gfp P

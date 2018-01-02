@@ -3,6 +3,8 @@ module cry.gfp where
 -- open import Agda.Primitive using (lsuc; _⊔_)
 open import Level
 
+-- import Agda.Builtin.FromNat
+open import Agda.Builtin.Bool
 open import Agda.Builtin.Equality
 open import Algebra.FunctionProperties.Core using (Op₁; Op₂)
 open import Relation.Nullary
@@ -31,6 +33,7 @@ record RawField c ℓ : Set (suc (c ⊔ ℓ)) where
     Carrier : Set c
     _≈_     : Rel Carrier ℓ
     _≈?_    : Decidable _≈_
+    _?≈_    : Carrier → Carrier → Bool
     _+_     : Op₂ Carrier
     _-_     : Op₂ Carrier
     _*_     : Op₂ Carrier
@@ -50,6 +53,31 @@ _div_ : (dividend divisor : ℕ) → ℕ
 (d div 0) = 0
 (d div N.suc s) = N.div-helper 0 s d s
 
+{-# TERMINATING #-}
+times : ∀ {a} {A : Set a} →
+  (one : A) (dbl : A → A) (add : A → A → A) →
+  A → ℕ → A
+times {A = A} one dbl add = mul where
+  mul : A → ℕ → A
+  f : A → ℕ → A
+  -- f u n = uⁿ
+  g : A → A → ℕ → A
+  -- g t u n = uⁿ t
+
+  mul x 0 = one
+  mul x n = f x n
+
+  f u 1 = u
+  f u n with n mod 2
+  ... | 0 = f (dbl u) (n div 2)
+  ... | _ = g u (dbl u) ((n N.- 1) div 2)
+
+  g t u 1 = add t u
+  g t u n with n mod 2
+  ... | 0 = g t (dbl u) (n div 2)
+  ... | _ = g (add t u) (dbl u) ((n N.- 1) div 2)
+
+
 module 𝔽ₚ (p : ℕ) where
     𝔽 : Set
     𝔽 = ℕ
@@ -62,7 +90,7 @@ module 𝔽ₚ (p : ℕ) where
 
     open N using (zero; suc)
     pred : ℕ → ℕ
-    pred zero = N.zero
+    pred zero = 0
     pred (suc n) = n
 
     _≟_ : (x y : 𝔽) → Dec (x == y)
@@ -101,22 +129,8 @@ module 𝔽ₚ (p : ℕ) where
     1# : 𝔽
     1# = 1
 
-    {-# TERMINATING #-}
     _^_ : 𝔽 → ℕ → 𝔽
-    x ^ 0 = 1#
-    x ^ n = f x n where
-      f : 𝔽 → ℕ → 𝔽
-      -- f u n = uⁿ
-      g : 𝔽 → 𝔽 → ℕ → 𝔽
-      -- g t u n = uⁿ t
-      f u 1 = u
-      f u n with n mod 2
-      ... | 0 = f (u ²) (n div 2)
-      ... | _ = g u (u ²) ((n N.- 1) div 2)
-      g t u 1 = t * u
-      g t u n with n mod 2
-      ... | 0 = g t (u ²) (n div 2)
-      ... | _ = g (t * u) (u ²) ((n N.- 1) div 2)
+    _^_ = times 1# _² _*_
 
     _⁻¹ : 𝔽 → 𝔽
     x ⁻¹ = x ^ (p N.- 2)
@@ -126,6 +140,7 @@ gfp p = record
   { Carrier = 𝔽
   ; _≈_ = _==_
   ; _≈?_ = _≟_
+  ; _?≈_ = N._==_
   ; _+_ = _+_
   ; _-_ = _-_
   ; _*_ = _*_

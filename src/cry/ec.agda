@@ -2,6 +2,9 @@ module cry.ec where
 
 open import Level
 open import Relation.Nullary
+open import Agda.Builtin.Bool
+open import Agda.Builtin.Nat using () renaming (Nat to ℕ)
+open import Agda.Builtin.List
 
 open import cry.gfp
 
@@ -27,10 +30,9 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
     field
       x y z : 𝔽
 
-  -- is-point : Point → Set _
+  is-point : Point → Bool
   -- (y/z³) ² ≡ (x/z²) ³ + a * (x/z²) + b
-  -- is-point (x , y , z) = ⊤
-  {-
+  is-point (x ∶ y ∶ z) =
     let
       y² = y ²
       x² = x ²
@@ -43,8 +45,7 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
       bz⁶ = b * z⁶
       x³+axz⁴ = x³ + axz⁴
       x³+axz⁴+bz⁶ = x³+axz⁴ + bz⁶
-    in y² =F x³+axz⁴+bz⁶
-  -}
+    in y² F.?≈ x³+axz⁴+bz⁶
 
   aff : Point → Point
   aff (x ∶ y ∶ z) = x′ ∶ y′ ∶ 1# where
@@ -130,6 +131,9 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
   (y₁ z₃³ + y₃ z₁³) = (y₂ z₁³ - y₁ z₂³) (- (y₂ z₁³ - y₁ z₂³)²
     + 2 x₁³ z₂⁶ + x₂³ z₁⁶ + x₁² x₂ (-3 z₁² z₂⁴)) z₁³
   -}
+
+  𝕆 : Point
+  𝕆 = (1# ∶ 1# ∶ 0#)
 
   dbl : Point → Point
   dbl (x₁ ∶ y₁ ∶ z₁) = (x₃ ∶ y₃ ∶ z₃) where
@@ -221,7 +225,10 @@ module ec {c ℓ} (gfp : RawField c ℓ) (a b : RawField.Carrier gfp) where
     [y₂z₁³-y₁z₂³][x₁z₂²[x₂z₁²-x₁z₂²]²-x₃] = y₂z₁³-y₁z₂³ * x₁z₂²[x₂z₁²-x₁z₂²]²-x₃
     y₃ = [y₂z₁³-y₁z₂³][x₁z₂²[x₂z₁²-x₁z₂²]²-x₃] - y₁z₂³[x₂z₁²-x₁z₂²]³
 
-module test where
+  dblAdd : Point → ℕ → Point
+  dblAdd = times 𝕆 dbl add
+
+module test-ec where
   g = cry.gfp.gfp 7
 
   open RawField g renaming (Carrier to 𝔽) public
